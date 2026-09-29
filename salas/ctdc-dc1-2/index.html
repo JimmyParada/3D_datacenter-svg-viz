@@ -1,1 +1,214 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DC 1-2 PB CTDC - Visor 3D Zabbix</title>
+    <style>
+        body { 
+            margin: 0; 
+            background: #111; 
+            overflow: hidden; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+        }
 
+        #info-panel {
+            position: absolute; 
+            top: 15px; 
+            left: 15px; 
+            background: rgba(0, 0, 0, 0.85);
+            color: #fff; 
+            padding: 15px 20px; 
+            border-radius: 8px; 
+            border: 1px solid #333; 
+            font-size: 13px; 
+            z-index: 100;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            backdrop-filter: blur(4px);
+        }
+
+        #info-panel h3 {
+            margin: 0 0 10px 0;
+            font-size: 16px;
+            color: #00d2ff;
+        }
+
+        #info-panel select { 
+            width: 100%;
+            margin-top: 5px; 
+            padding: 6px; 
+            border-radius: 4px; 
+            background: #222; 
+            color: #fff; 
+            border: 1px solid #555; 
+            cursor: pointer;
+            outline: none;
+        }
+
+        .control-group {
+            margin-top: 12px;
+            border-top: 1px solid #333;
+            padding-top: 10px;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            margin-bottom: 6px;
+            user-select: none;
+        }
+
+        .checkbox-label input[type="checkbox"] {
+            cursor: pointer;
+            width: 15px;
+            height: 15px;
+            accent-color: #00d2ff;
+        }
+
+        #legend {
+            position: absolute; 
+            bottom: 20px; 
+            right: 20px; 
+            background: rgba(0, 0, 0, 0.85);
+            padding: 12px 16px; 
+            border-radius: 8px; 
+            color: #fff; 
+            font-size: 12px;
+            border: 1px solid #333; 
+            z-index: 100;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            backdrop-filter: blur(4px);
+        }
+
+        .legend-row { 
+            display: flex; 
+            align-items: center; 
+            gap: 10px; 
+            margin-top: 8px; 
+        }
+
+        .box { 
+            width: 14px; 
+            height: 14px; 
+            border-radius: 3px; 
+        }
+
+        .box-perforated {
+            background: repeating-radial-gradient(circle at 50% 50%, #00d2ff 0, #00d2ff 2px, #2c333a 3px, #2c333a 5px);
+            border: 1px solid #667;
+        }
+
+        .box-crac {
+            background: #0984e3;
+            border: 1px solid #3498db;
+        }
+
+        #tooltip {
+            position: absolute;
+            display: none;
+            background: rgba(0, 0, 0, 0.9);
+            color: #fff;
+            padding: 10px 14px;
+            border-radius: 6px;
+            font-size: 13px;
+            pointer-events: none;
+            border: 1px solid #00d2ff;
+            box-shadow: 0px 4px 12px rgba(0,0,0,0.6);
+            z-index: 1000;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- TOOLTIP INTERACTIVO -->
+    <div id="tooltip"></div>
+
+    <!-- PANEL DE CONTROL -->
+    <div id="info-panel">
+        <h3>Sala DC 1-2 PB CTDC</h3>
+        <p style="margin: 5px 0;">Estado Zabbix: <span id="status" style="color: yellow; font-weight: bold;">Conectando...</span></p>
+        
+        <div style="margin-top: 10px;">
+            <label for="colorMode"><strong>Modo de Visualización:</strong></label>
+            <select id="colorMode">
+                <option value="temp">Temperatura (°C)</option>
+                <option value="power">Consumo (kVA)</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label class="checkbox-label">
+                <input type="checkbox" id="toggleVentTiles" checked>
+                <span><strong>Losas de ventilación</strong></span>
+            </label>
+            <label class="checkbox-label" style="font-size: 12px; color: #a0d8ef;">
+                <input type="checkbox" id="toggleAirflow" checked>
+                <span>Flujo de aire frío</span>
+            </label>
+        </div>
+
+        <p style="font-size: 11px; color: #888; margin-top: 10px; margin-bottom: 0;">
+            🖱️ Clic izq: Rotar | Clic der: Mover | Scroll: Zoom<br>
+            <!-- NUEVO!!!!-->
+            ✨ <b>Doble Clic:</b> Zoom hacia el rack<br>
+            ⌨️ <b>Tecla H:</b> Ocultar / Mostrar paneles
+        </p>
+    </div>
+
+    <!-- LEYENDA -->
+    <div id="legend">
+        <b id="legend-title">Temperatura (°C)</b>
+        <div class="legend-row">
+            <div class="box" style="background:#2ecc71;"></div> 
+            <span id="leg-normal">Normal (&lt; 24°C)</span>
+        </div>
+        <div class="legend-row">
+            <div class="box" style="background:#f1c40f;"></div> 
+            <span id="leg-alert">Alerta (24°C - 28°C)</span>
+        </div>
+        <div class="legend-row">
+            <div class="box" style="background:#e74c3c;"></div> 
+            <span id="leg-critical">Crítico (&gt; 28°C)</span>
+        </div>
+        <div class="legend-row" style="border-top: 1px solid #444; padding-top: 6px; margin-top: 8px;">
+            <div class="box box-perforated"></div> 
+            <span>Losa Perforada (Pasillo Frío)</span>
+        </div>
+        <div class="legend-row">
+            <div class="box box-crac"></div> 
+            <span>Unidad CRAC (Climatización)</span>
+        </div>
+    </div>
+
+    <!-- THREE.JS + ORBITCONTROLS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    
+    <!-- GSAP PARA ANIMACIONES FLUIDAS -- NUEVO!!!!-->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+    <!-- SCRIPT DEL VISOR -->
+    <script src="app.js"></script>
+
+
+    <!-- AGREGAR ESTO PARA CONTROLARLOS CON LA TECLA H -->
+    <script>
+        window.addEventListener('keydown', (event) => {
+            if (event.key === 'h' || event.key === 'H') {
+                const infoPanel = document.getElementById('info-panel');
+                const legendPanel = document.getElementById('legend');
+
+                if (infoPanel) {
+                    infoPanel.style.display = infoPanel.style.display === 'none' ? 'block' : 'none';
+                }
+                if (legendPanel) {
+                    legendPanel.style.display = legendPanel.style.display === 'none' ? 'block' : 'none';
+                }
+            }
+        });
+    </script>
+</body>
+</html>
