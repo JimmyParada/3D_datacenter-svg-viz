@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DC 1-1 CTDV - Visor 3D Zabbix</title>
+    <title>DC 1-1 MZ CTDC - Visor 3D Zabbix</title>
     <style>
         body { 
             margin: 0; 
@@ -99,6 +99,15 @@
             background: repeating-radial-gradient(circle at 50% 50%, #00d2ff 0, #00d2ff 2px, #2c333a 3px, #2c333a 5px);
             border: 1px solid #667;
         }
+        
+        .hidden-panel {
+            display: none !important;
+        }
+        
+        .box-crac {
+            background: #0984e3;
+            border: 1px solid #3498db;
+        }
 
         #tooltip {
             position: absolute;
@@ -118,12 +127,12 @@
 </head>
 <body>
 
-    <!-- TOOLTIP AL PASAR EL MOUSE POR UN RACK -->
+    <!-- TOOLTIP INTERACTIVO -->
     <div id="tooltip"></div>
 
-    <!-- PANEL SUPERIOR DE CONTROL E INFORMACIÓN -->
+    <!-- PANEL DE CONTROL -->
     <div id="info-panel">
-        <h3>Sala DC 1-1 CTDV</h3>
+        <h3>Sala DC 1-1 MZ CTDC</h3>
         <p style="margin: 5px 0;">Estado Zabbix: <span id="status" style="color: yellow; font-weight: bold;">Conectando...</span></p>
         
         <div style="margin-top: 10px;">
@@ -134,7 +143,6 @@
             </select>
         </div>
 
-        <!-- CONTROLES DE LOSAS DE VENTILACIÓN -->
         <div class="control-group">
             <label class="checkbox-label">
                 <input type="checkbox" id="toggleVentTiles" checked>
@@ -154,7 +162,7 @@
         </p>
     </div>
 
-    <!-- LEYENDA DINÁMICA DE ESTADOS -->
+    <!-- LEYENDA -->
     <div id="legend">
         <b id="legend-title">Temperatura (°C)</b>
         <div class="legend-row">
@@ -169,22 +177,32 @@
             <div class="box" style="background:#e74c3c;"></div> 
             <span id="leg-critical">Crítico (&gt; 28°C)</span>
         </div>
-        <div class="legend-row" style="border-top: 1px solid #444; padding-top: 8px; margin-top: 8px;">
+        <div class="legend-row" style="border-top: 1px solid #444; padding-top: 6px; margin-top: 8px;">
             <div class="box box-perforated"></div> 
             <span>Losa Perforada (Pasillo Frío)</span>
         </div>
+        <div class="legend-row">
+            <div class="box box-crac"></div> 
+            <span>Unidad CRAC (Climatización)</span>
+        </div>
     </div>
 
-    <!-- LIBRERÍAS EXTERNAS (Three.js + OrbitControls) -->
+    <!-- THREE.JS + ORBITCONTROLS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <!--Nuevo!!!! GSAP PARA ANIMACIONES FLUIDAS --> 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <!-- SCRIPT DEL VISOR -->
+    <script src="app.js"></script>
+    <!-- BOTÓN PARA OCULTAR / MOSTRAR PANELES -->
+        <div style="margin-top: 12px; border-top: 1px solid #333; padding-top: 10px;">
+            <button id="togglePanelsBtn" style="width: 100%; padding: 8px; border-radius: 4px; background: #00d2ff; color: #000; border: none; font-weight: bold; cursor: pointer; transition: background 0.2s;">
+                👁️ Ocultar Paneles
+            </button>
+        </div>
     <!-- LÓGICA PRINCIPAL DEL VISOR 3D -->
     <script src="app.js"></script>
-    <!-- LÓGICA PRINCIPAL DEL VISOR 3D -->
-    <script src="app.js"></script>
-
+ 
     <!-- AGREGAR ESTO PARA CONTROLARLOS CON LA TECLA H -->
     <script>
         window.addEventListener('keydown', (event) => {
