@@ -205,10 +205,11 @@ function init() {
         });
     }
 
+    // CÓDIGO CORREGIDO EN init()
     const toggleAirflow = document.getElementById('toggleAirflow');
     if (toggleAirflow) {
         toggleAirflow.addEventListener('change', (e) => {
-            if (airflowGroup) airflowGroup.visible = e.target.checked;
+            if (airflowParticles) airflowParticles.visible = e.target.checked;
         });
     }
 
@@ -318,7 +319,7 @@ function createCRACUnit(name, xPos, zPos, width = 3.66, depth = 1.06, height = 3
 }
 function createPerforatedTilesLayout() {
     perforatedTilesGroup = new THREE.Group();
-    airflowGroup = new THREE.Group();
+    perforatedTilesGroup.name = "perforatedTilesGroup";
 
     const tileTexture = createPerforatedTileTexture();
     const tileMaterial = new THREE.MeshStandardMaterial({
@@ -332,66 +333,31 @@ function createPerforatedTilesLayout() {
     const tileGeo = new THREE.PlaneGeometry(0.58, 0.58);
     tileGeo.rotateX(-Math.PI / 2);
 
-        // ----------------------------------------------------
-    // GEOMETRÍA Y TEXTURA DE FLUJO DE AIRE MEJORADA
-    // ----------------------------------------------------
-    const airHeight = 2.1; // Altura aumentada a 2.1 metros (casi la altura del rack)
-    const airGeo = new THREE.BoxGeometry(0.56, airHeight, 0.56);
-    
-    const airCanvas = document.createElement('canvas');
-    airCanvas.width = 128;
-    airCanvas.height = 256;
-    const actx = airCanvas.getContext('2d');
-    // Fondo transparente
-    actx.clearRect(0, 0, 128, 256);
-    // Corrientes / líneas de flujo de aire frío ascendente
-    actx.fillStyle = 'rgba(0, 230, 255, 0.4)';
-    for (let x = 10; x < 128; x += 14) {
-    actx.fillRect(x, 0, 7, 256);
-    }
-    // Degradado vertical: fuerte en la base (suelo) y difuminado arriba
-    const grad = actx.createLinearGradient(0, 256, 0, 0);
-    grad.addColorStop(0, 'rgba(0, 240, 255, 0.95)');   // Muy brillante y visible en la base
-    grad.addColorStop(0.3, 'rgba(0, 210, 255, 0.65)');  // Visible a media altura
-    grad.addColorStop(0.7, 'rgba(0, 180, 255, 0.35)');
-    grad.addColorStop(1, 'rgba(0, 150, 255, 0.0)');    // Desvanecido suave al llegar al techo
-    actx.globalCompositeOperation = 'destination-in';
-    actx.fillStyle = grad;
-    actx.fillRect(0, 0, 128, 256);
-    window.airflowTexture = new THREE.CanvasTexture(airCanvas);
-    window.airflowTexture.wrapT = THREE.RepeatWrapping; // Permite desplazamiento continuo hacia arriba
-    window.airflowMaterial = new THREE.MeshBasicMaterial({
-        map: window.airflowTexture,
-        transparent: true,
-        opacity: 1,                     // Opacidad base alta
-        side: THREE.DoubleSide,
-        depthWrite: false,
-        blending: THREE.AdditiveBlending   // Modo aditivo: brilla como luz/neón
-    });
-
-    const openRackTargets = ["AD11"];
+    // Ajusta esta lista de racks según tu configuración (por ejemplo, los de bastidor abierto o Siemon)
+    const openRackTargets = ["AD11"]; // o ["AD15", "AD16", "AD18", "AD19", "AD21"] según tu escenario
     const addedTileKeys = new Set();
+    const tileCoordinates = [];
 
     rackList.forEach(data => {
         const isSiemon = openRackTargets.includes(data.id);
-        const isRotatedRow = data.id.startsWith("AJ") || data.id.startsWith("AT") || data.id.startsWith("BB");
+        const isRotatedRow = data.id.startsWith("AJ") || data.id.startsWith("VA") || data.id.startsWith("BF") || data.id.startsWith("AT") || data.id.startsWith("BB");
 
         let rackFrontX, rackCenterZ, facingDir;
 
         if (isSiemon) {
             rackFrontX = data.x;
             rackCenterZ = data.z;
-            facingDir = 1; // Hacia +X
+            facingDir = 1;
         } else {
             const depth = 1.07;
             const width = 0.58;
             rackCenterZ = data.z + width / 2;
             if (isRotatedRow) {
                 rackFrontX = data.x;
-                facingDir = -1; // Hacia -X
+                facingDir = -1;
             } else {
                 rackFrontX = data.x + depth;
-                facingDir = 1; // Hacia +X
+                facingDir = 1;
             }
         }
 
@@ -410,21 +376,80 @@ function createPerforatedTilesLayout() {
         if (!addedTileKeys.has(tileKey)) {
             addedTileKeys.add(tileKey);
 
+            // Crear la baldosa física en 3D
             const tileMesh = new THREE.Mesh(tileGeo, tileMaterial);
             tileMesh.position.set(tileX, 0.012, tileZ);
+            tileMesh.receiveShadow = true;
             perforatedTilesGroup.add(tileMesh);
 
-            const airMesh1 = new THREE.Mesh(airGeo, window.airflowMaterial);
-            airMesh1.position.set(tileX, airHeight / 2 + 0.015, tileZ);
-            const airMesh2 = airMesh1.clone();
-            airMesh2.rotation.y = Math.PI / 2;
-
-            airflowGroup.add(airMesh1, airMesh2);
+            // Guardar coordenadas de la baldosa para generar partículas sobre ella
+            tileCoordinates.push({ x: tileX, z: tileZ });
         }
     });
 
     scene.add(perforatedTilesGroup);
-    scene.add(airflowGroup);
+
+    // ----------------------------------------------------
+    // CREACIÓN DEL SISTEMA DE PARTÍCULAS DE AIRE FRÍO
+    // ----------------------------------------------------
+    const particlesPerTile = 3000; // Cantidad de partículas por cada baldosa perforada
+    const totalParticles = tileCoordinates.length * particlesPerTile;
+    const geometry = new THREE.BufferGeometry();
+    const positions = new Float32Array(totalParticles * 3);
+    const speeds = new Float32Array(totalParticles);
+
+    let pIndex = 0;
+    tileCoordinates.forEach(tile => {
+        for (let i = 0; i < particlesPerTile; i++) {
+            const px = tile.x + (Math.random() - 0.5) * 0.5;
+            const pz = tile.z + (Math.random() - 0.5) * 0.5;
+            const py = Math.random() * 2.1; // Altura inicial aleatoria de 0 a 2.1m
+
+            positions[pIndex * 3] = px;
+            positions[pIndex * 3 + 1] = py;
+            positions[pIndex * 3 + 2] = pz;
+
+            speeds[pIndex] = 0.012 + Math.random() * 0.018; // Velocidad de ascenso de la partícula
+            pIndex++;
+        }
+    });
+
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+    // Generación del canvas con textura circular con degradado neón cyan/azul
+    const canvas = document.createElement('canvas');
+    canvas.width = 64;
+    canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+    const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+    grad.addColorStop(0, 'rgba(0, 240, 255, 1)');
+    grad.addColorStop(0.5, 'rgba(0, 180, 255, 0.5)');
+    grad.addColorStop(1, 'rgba(0, 150, 255, 0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 64, 64);
+
+    const pTexture = new THREE.CanvasTexture(canvas);
+    const pMaterial = new THREE.PointsMaterial({
+        color: 0x00d2ff,
+        size: 0.07,
+        map: pTexture,
+        transparent: true,
+        opacity: 0.85,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending
+    });
+
+    airflowParticles = new THREE.Points(geometry, pMaterial);
+    airflowParticles.name = "airflowParticles";
+    scene.add(airflowParticles);
+
+    // Se almacenan los datos de soporte para usarlos en el ciclo animate()
+    window.airflowParticlesData = {
+        geometry: geometry,
+        speeds: speeds,
+        tileCoords: tileCoordinates,
+        particlesPerTile: particlesPerTile
+    };
 }
 
 // ==========================================
@@ -1183,9 +1208,27 @@ function onWindowResize() {
 function animate() {
     requestAnimationFrame(animate);
 
-    // Animación de subida del flujo de aire frío
-    if (window.airflowTexture) {
-        window.airflowTexture.offset.y -= 0.016;
+    // Animación del sistema de partículas de aire frío ascendente
+    if (airflowParticles && airflowParticles.visible && window.airflowParticlesData) {
+        const data = window.airflowParticlesData;
+        const positions = data.geometry.attributes.position.array;
+        const speeds = data.speeds;
+        
+        for (let i = 0; i < speeds.length; i++) {
+            positions[i * 3 + 1] += speeds[i]; // Mover la partícula hacia arriba
+            
+            // Si la partícula supera los 2.1 metros, reaparece abajo dentro del área de su baldosa
+            if (positions[i * 3 + 1] > 2.1) {
+                const tileIndex = Math.floor(i / data.particlesPerTile);
+                const tile = data.tileCoords[tileIndex];
+                if (tile) {
+                    positions[i * 3] = tile.x + (Math.random() - 0.5) * 0.5;
+                    positions[i * 3 + 1] = 0.02;
+                    positions[i * 3 + 2] = tile.z + (Math.random() - 0.5) * 0.5;
+                }
+            }
+        }
+        data.geometry.attributes.position.needsUpdate = true;
     }
 
     controls.update();
