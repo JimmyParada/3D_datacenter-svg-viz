@@ -196,19 +196,27 @@
 
     <!-- AGREGAR ESTO PARA CONTROLARLOS CON LA TECLA H -->
     <script>
-        window.addEventListener('keydown', (event) => {
-            if (event.key === 'h' || event.key === 'H') {
-                const infoPanel = document.getElementById('info-panel');
-                const legendPanel = document.getElementById('legend');
+    // 1. Asegurar que el iframe reciba el foco para capturar eventos de teclado
+    window.addEventListener('click', () => {
+        window.focus();
+    });
 
-                if (infoPanel) {
-                    infoPanel.style.display = infoPanel.style.display === 'none' ? 'block' : 'none';
-                }
-                if (legendPanel) {
-                    legendPanel.style.display = legendPanel.style.display === 'none' ? 'block' : 'none';
-                }
+    // 2. Escuchador de teclado con verificación de estilos computados
+    window.addEventListener('keydown', (event) => {
+        if (event.key === 'h' || event.key === 'H') {
+            const infoPanel = document.getElementById('info-panel');
+            const legendPanel = document.getElementById('legend');
+
+            if (infoPanel) {
+                const currentDisplay = window.getComputedStyle(infoPanel).display;
+                infoPanel.style.display = (currentDisplay === 'none') ? 'block' : 'none';
             }
-        });
+            if (legendPanel) {
+                const currentDisplay = window.getComputedStyle(legendPanel).display;
+                legendPanel.style.display = (currentDisplay === 'none') ? 'block' : 'none';
+            }
+        }
+    });
     </script>
 </body>
 </html>
