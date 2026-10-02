@@ -1025,50 +1025,7 @@ function onWindowResize() {
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
 }
-// --- CONTROL DE NAVEGACIÓN ENTRE SALAS ---
-document.addEventListener('DOMContentLoaded', () => {
-    const selectSede = document.getElementById('select-sede');
-    const selectSala = document.getElementById('select-sala');
 
-    if (!selectSede || !selectSala) return;
-
-    // Detectar sala actual para auto-seleccionar las opciones correctas
-    const path = window.location.pathname.toLowerCase();
-
-    if (path.includes('ctdv-dc1-1')) {
-        selectSede.value = 'CTDV';
-        selectSala.value = 'DC1-1';
-    } else if (path.includes('ctdv-dc1-2')) {
-        selectSede.value = 'CTDV';
-        selectSala.value = 'DC1-2';
-    } else if (path.includes('ctdc-dc1-1')) {
-        selectSede.value = 'CTDC';
-        selectSala.value = 'DC1-1';
-    } else if (path.includes('ctdc-dc1-2')) {
-        selectSede.value = 'CTDC';
-        selectSala.value = 'DC1-2';
-    }
-
-    // Definición de rutas relativas entre carpetas en GitHub / Google Sites
-    const rutas = {
-        'CTDV_DC1-1': '../ctdv-dc1-1/index.html',
-        'CTDV_DC1-2': '../ctdv-dc1-2/index.html',
-        'CTDC_DC1-1': '../ctdc-dc1-1/index.html',
-        'CTDC_DC1-2': '../ctdc-dc1-2/index.html'
-    };
-
-    function cambiarSala() {
-        const seleccion = `${selectSede.value}_${selectSala.value}`;
-        
-        // Redirige dentro del mismo marco (iframe de Google Sites)
-        if (rutas[seleccion]) {
-            window.location.href = rutas[seleccion];
-        }
-    }
-
-    selectSede.addEventListener('change', cambiarSala);
-    selectSala.addEventListener('change', cambiarSala);
-});
 function animate() {
     requestAnimationFrame(animate);
 
