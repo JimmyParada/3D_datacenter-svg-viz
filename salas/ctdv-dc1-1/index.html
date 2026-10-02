@@ -100,6 +100,11 @@
             border: 1px solid #667;
         }
 
+        .box-crac {
+            background: #0984e3;
+            border: 1px solid #3498db;
+        }
+
         #tooltip {
             position: absolute;
             display: none;
@@ -173,6 +178,10 @@
             <div class="box box-perforated"></div> 
             <span>Losa Perforada (Pasillo Frío)</span>
         </div>
+        <div class="legend-row">
+            <div class="box box-crac"></div> 
+            <span>Unidad CRAH (Climatización)</span>
+        </div>
     </div>
 
     <!-- LIBRERÍAS EXTERNAS (Three.js + OrbitControls) -->
@@ -200,24 +209,6 @@
                 }
             }
         });
-        <!-- Agrega este bloque dentro del panel de control superior -->
-<div style="margin-top: 15px; border-top: 1px solid #444; padding-top: 10px;">
-    <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 8px;">
-        <label for="select-sede" style="font-size: 13px; color: #ccc;">Sede:</label>
-        <select id="select-sede" style="background: #1a202c; color: white; border: 1px solid #4a5568; padding: 3px 6px; border-radius: 4px; flex-grow: 1;">
-            <option value="CTDV">CTDV</option>
-            <option value="CTDC">CTDC</option>
-        </select>
-    </div>
-
-    <div style="display: flex; gap: 10px; align-items: center;">
-        <label for="select-sala" style="font-size: 13px; color: #ccc;">Sala:</label>
-        <select id="select-sala" style="background: #1a202c; color: white; border: 1px solid #4a5568; padding: 3px 6px; border-radius: 4px; flex-grow: 1;">
-            <option value="DC1-1">DC1-1</option>
-            <option value="DC1-2">DC1-2</option>
-        </select>
-    </div>
-</div>
     </script>
 </body>
 </html>
