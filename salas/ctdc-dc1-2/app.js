@@ -1,12 +1,12 @@
-// =========================================================================
+// ==========================================
 // DC 1-2 PB CTDC - VISOR 3D THREE.JS CON INTEGRACIÓN ZABBIX
 // Basado en plano oficial TIA-942 (33 Columnas AA-BG x 21 Filas 01-21)
-// =========================================================================
+// ==========================================
 
 let scene, camera, renderer, controls;
 let racks = [];
-let cracs = []; // <-- NUEVO: Arreglo para almacenar las unidades CRAC
-let perforatedTilesGroup, airflowGroup;
+let cracs = []; 
+let perforatedTilesGroup, airflowParticles; // Variable declarada para partículas
 let cachedZabbixData = {};
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
@@ -23,16 +23,15 @@ const TILE_SIZE = 0.6; // 60 cm estándar
 
 // POLÍGONO MAESTRO CORREGIDO DEL PERÍMETRO DE LA SALA DC 1-2
 const ROOM_POLYGON = [
-    { x: 0.0,  z: 0.0  }, // 0: AA, fila 21 (Esquina superior izquierda)
-    { x: 19.8, z: 0.0  }, // 1: BG, fila 21 (Esquina superior derecha)
-    { x: 19.8, z: 12.6 }, // 2: BG, fila 01 (Esquina inferior derecha)
-    { x: 4.8,  z: 12.6 }, // 3: AI, fila 01 (Muro inferior)
-    { x: 4.8,  z: 4.8  }, // 4: AI, fila 14 (Quiebre vertical)
-    { x: 3.0,  z: 4.8  }, // 5: AF, fila 14 (Quiebre horizontal)
-    { x: 0.0,  z: 4.8  }  // 7: AA, fila 17 (Cierre hacia el borde izquierdo)
+    { x: 0.0,  z: 0.0  }, 
+    { x: 19.8, z: 0.0  }, 
+    { x: 19.8, z: 12.6 }, 
+    { x: 4.8,  z: 12.6 }, 
+    { x: 4.8,  z: 4.8  }, 
+    { x: 3.0,  z: 4.8  }, 
+    { x: 0.0,  z: 4.8  }  
 ];
 
-// Algoritmo matemático para comprobar si un punto (x, z) cae dentro de la sala
 function isInsideRoom(x, z) {
     let inside = false;
     for (let i = 0, j = ROOM_POLYGON.length - 1; i < ROOM_POLYGON.length; j = i++) {
@@ -44,7 +43,6 @@ function isInsideRoom(x, z) {
     return inside;
 }
 
-// Convierte código TIA (ej. "AH19" o "BC04") a coordenadas 3D en metros
 function getTilePos(colName, rowNum) {
     const colIndex = COLS.indexOf(colName);
     const x = (colIndex + 0.5) * TILE_SIZE;
@@ -58,9 +56,6 @@ function getPosFromId(id) {
     return getTilePos(col, row);
 }
 
-// =========================================================================
-// LISTADO MAESTRO DE RACKS EXTRAÍDOS DEL PLANO DC 1-2
-// =========================================================================
 const racksSala1_2 = [
     { id: "AH19", facing: "+Z" }, { id: "AI19", facing: "+Z" }, { id: "AJ19", facing: "+Z" }, 
     { id: "AK19", facing: "+Z" }, { id: "AL19", facing: "+Z" }, { id: "AM19", facing: "+Z" }, 
@@ -129,7 +124,7 @@ function init() {
     dirLight2.position.set(-20, 25, -20);
     scene.add(dirLight2);
 
-    // Construcción de la sala y elementos
+    // Construcción
     createDatacenterRoom();
     createRacksLayout();
     createPerforatedTilesLayout();
@@ -137,10 +132,6 @@ function init() {
     // Eventos
     window.addEventListener('resize', onWindowResize, false);
     window.addEventListener('mousemove', onMouseMove, false);
-    // ==========================================
-    // NUEVO: EVENTO DE ZOOM AL HACER DOBLE CLIC
-    // ==========================================
-    // 👉 AGREGA ESTA LÍNEA PARA ACTIVAR EL ZOOM CON DOBLE CLIC:
     window.addEventListener('dblclick', onWindowDoubleClick, false);
 
     const selectMode = document.getElementById('colorMode');
@@ -156,17 +147,13 @@ function init() {
     const toggleAirflow = document.getElementById('toggleAirflow');
     if (toggleAirflow) {
         toggleAirflow.addEventListener('change', (e) => {
-            if (airflowGroup) airflowGroup.visible = e.target.checked;
+            if (airflowParticles) airflowParticles.visible = e.target.checked;
         });
     }
     
     fetchZabbixData();
     setInterval(fetchZabbixData, 30000);
 }
-
-// ==========================================
-// CONSTRUCCIÓN DE LA SALA DC 1-2
-// ==========================================
 
 function createDatacenterRoom() {
     const floorShape = new THREE.Shape();
@@ -180,18 +167,12 @@ function createDatacenterRoom() {
     const floorGeometry = new THREE.ExtrudeGeometry(floorShape, extrudeSettings);
     floorGeometry.rotateX(Math.PI / 2);
 
-    const floorMaterial = new THREE.MeshStandardMaterial({
-        color: 0x95a5a6,
-        roughness: 0.4,
-        metalness: 0.1
-    });
-
+    const floorMaterial = new THREE.MeshStandardMaterial({ color: 0x95a5a6, roughness: 0.4, metalness: 0.1 });
     const floorMesh = new THREE.Mesh(floorGeometry, floorMaterial);
     floorMesh.position.set(0, -0.15, 0);
     floorMesh.receiveShadow = true;
     scene.add(floorMesh);
 
-    // Cuadrícula de baldosas
     const gridGroup = new THREE.Group();
     const lineMat = new THREE.LineBasicMaterial({ color: 0x5a656d, opacity: 0.85, transparent: true });
 
@@ -222,14 +203,9 @@ function createDatacenterRoom() {
     }
     scene.add(gridGroup);
 
-    // Muros perimetrales
     const wallHeight = 2.2;
     const wallThickness = 0.25;
-    const wallMat = new THREE.MeshStandardMaterial({
-        color: 0x242a30,
-        roughness: 0.6,
-        metalness: 0.2
-    });
+    const wallMat = new THREE.MeshStandardMaterial({ color: 0x242a30, roughness: 0.6, metalness: 0.2 });
 
     for (let i = 0; i < ROOM_POLYGON.length - 1; i++) {
         const p1 = ROOM_POLYGON[i];
@@ -250,16 +226,9 @@ function createDatacenterRoom() {
     createCRACUnit("CRAC12-1", "AA", 16, 21);
     createCRACUnit("CRAC12-2", "AI", 4, 9);
     createCRACUnit("CRAC12-3", "BF", 4, 9);
-    
-
     createCagesLayout();
 }
-// ==========================================
-// CONSTRUCCIÓN DE RACKS (LISTA UNIFICADA Y CORREGIDA)
-// ==========================================
 
-
-// Generador de Unidades CRAC
 function createCRACUnit(name, colName, rowStart, rowEnd) {
     const p1 = getTilePos(colName, rowEnd);
     const p2 = getTilePos(colName, rowStart);
@@ -270,11 +239,7 @@ function createCRACUnit(name, colName, rowStart, rowEnd) {
 
     const cracGroup = new THREE.Group();
     const cracGeo = new THREE.BoxGeometry(width, height, length);
-    const cracMat = new THREE.MeshStandardMaterial({
-        color: 0x0984e3,
-        roughness: 0.35,
-        metalness: 0.6
-    });
+    const cracMat = new THREE.MeshStandardMaterial({ color: 0x0984e3, roughness: 0.35, metalness: 0.6 });
 
     const body = new THREE.Mesh(cracGeo, cracMat);
     body.position.set(0, height / 2, 0);
@@ -288,35 +253,22 @@ function createCRACUnit(name, colName, rowStart, rowEnd) {
     cracGroup.add(body, topGrill);
     cracGroup.position.set(p1.x, 0, (p1.z + p2.z) / 2);
 
-    // NUEVO: Asignar userData y registrar la CRAC
     cracGroup.userData = { name: name };
     cracs.push(cracGroup);
-
     scene.add(cracGroup);
 }
 
-// ==========================================
-// TEXTURA Y PANELES DE JAULA (MALLA METÁLICA)
-// ==========================================
-
 function createMeshTexture() {
     const canvas = document.createElement('canvas');
-    canvas.width = 64;
-    canvas.height = 64;
+    canvas.width = 64; canvas.height = 64;
     const ctx = canvas.getContext('2d');
-
     ctx.clearRect(0, 0, 64, 64);
     ctx.strokeStyle = '#aaaaaa';
     ctx.lineWidth = 2;
 
     for (let i = 0; i <= 64; i += 8) {
-        ctx.beginPath();
-        ctx.moveTo(i, 0); ctx.lineTo(i, 64);
-        ctx.stroke();
-
-        ctx.beginPath();
-        ctx.moveTo(0, i); ctx.lineTo(64, i);
-        ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 64); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(64, i); ctx.stroke();
     }
 
     const texture = new THREE.CanvasTexture(canvas);
@@ -334,17 +286,13 @@ function createCagePanel(width, height, position, rotationY = 0) {
     textureCloned.repeat.set(width * 2, height * 2);
 
     const panelMat = new THREE.MeshBasicMaterial({
-        map: textureCloned,
-        transparent: true,
-        opacity: 0.55,
-        side: THREE.DoubleSide
+        map: textureCloned, transparent: true, opacity: 0.55, side: THREE.DoubleSide
     });
 
     const panelMesh = new THREE.Mesh(panelGeo, panelMat);
     panelMesh.position.set(0, height / 2, 0);
     cageGroup.add(panelMesh);
 
-    // Postes y marcos negros de la estructura de la jaula
     const frameMat = new THREE.MeshBasicMaterial({ color: 0x111111 });
     const thickness = 0.08;
 
@@ -369,17 +317,9 @@ function createCagePanel(width, height, position, rotationY = 0) {
 
     return cageGroup;
 }
-// Jaulas del plano
+
 function createCagesLayout() {
     const cageHeight = 2.4;
-    
-    const j1_left = getTilePos("AH", 20).x;
-    const j1_right = getTilePos("BG", 20).x;
-    
-    // Ejemplo de cerramiento con la nueva malla metálica
-    //scene.add(createCagePanel(j1_right - j1_left, cageHeight, { x: (j1_left + j1_right) / 2, y: 0, z: getTilePos("AH", 20).z }, 0));
-    //scene.add(createCagePanel(j1_right - j1_left, cageHeight, { x: (j1_left + j1_right) / 2, y: 0, z: getTilePos("AE", 18).z }, 0));
-    // --- CERRAMIENTO 2: Panel vertical lateral (usando medidas directas en metros) ---
     scene.add(createCagePanel(3.0, cageHeight, { x: 3.0, y: 0, z: 1.5 }, Math.PI / 2));
     scene.add(createCagePanel(3.0, cageHeight, { x: 9.9, y: 0, z: 1.5 }, Math.PI / 2));
     scene.add(createCagePanel(3.0, cageHeight, { x: 12.6, y: 0, z: 1.5 }, Math.PI / 2));
@@ -388,27 +328,19 @@ function createCagesLayout() {
     scene.add(createCagePanel(7.8, cageHeight, { x: 9.9 , y: 0, z: 6.9 }, Math.PI / 2));
     scene.add(createCagePanel(7.8, cageHeight, { x: 12.6 , y: 0, z: 6.9 }, Math.PI / 2));
 
-    // --- CERRAMIENTO 3: Otro panel horizontal en otra zona de la sala ---
     scene.add(createCagePanel(16.7, cageHeight, { x: 11.3, y: 0, z: 3.0 }, 0));
     scene.add(createCagePanel(5.4, cageHeight, { x: 9.9, y: 0, z: 8.1 }, 0));
     scene.add(createCagePanel(5.4, cageHeight, { x: 9.9, y: 0, z: 10.8 }, 0));
 }
 
-// ==========================================
-// LOSAS PERFORADAS Y FLUJO DE AIRE
-// ==========================================
-
 function createPerforatedTileTexture() {
     const canvas = document.createElement('canvas');
-    canvas.width = 256;
-    canvas.height = 256;
+    canvas.width = 256; canvas.height = 256;
     const ctx = canvas.getContext('2d');
 
-    // Fondo chapa de acero
     ctx.fillStyle = '#2b3036';
     ctx.fillRect(0, 0, 256, 256);
 
-    // Marco exterior de la baldosa (bisel perimetral)
     ctx.lineWidth = 12;
     ctx.strokeStyle = '#48525b';
     ctx.strokeRect(6, 6, 244, 244);
@@ -417,106 +349,47 @@ function createPerforatedTileTexture() {
     ctx.strokeStyle = '#181d22';
     ctx.strokeRect(12, 12, 232, 232);
 
-    // Remaches de anclaje en las 4 esquinas
     const rivets = [[20, 20], [236, 20], [20, 236], [236, 236]];
     rivets.forEach(([rx, ry]) => {
         ctx.fillStyle = '#14181c';
-        ctx.beginPath();
-        ctx.arc(rx, ry, 4.5, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = '#6b7987';
-        ctx.lineWidth = 1.2;
-        ctx.stroke();
+        ctx.beginPath(); ctx.arc(rx, ry, 4.5, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#6b7987'; ctx.lineWidth = 1.2; ctx.stroke();
     });
 
-    // Rejilla de perforaciones circulares (~56% flujo de aire)
-    const margin = 28;
-    const spacing = 15;
-    const radius = 4.2;
-
+    const margin = 28; const spacing = 15; const radius = 4.2;
     for (let y = margin; y <= 256 - margin; y += spacing) {
         const isOddRow = Math.round((y - margin) / spacing) % 2 === 1;
         const startX = isOddRow ? margin + spacing / 2 : margin;
 
         for (let x = startX; x <= 256 - margin; x += spacing) {
-            // Fondo oscuro de la perforación (pleno inferior)
-            ctx.beginPath();
-            ctx.arc(x, y, radius, 0, Math.PI * 2);
-            ctx.fillStyle = '#0a0d11';
-            ctx.fill();
+            ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI * 2);
+            ctx.fillStyle = '#0a0d11'; ctx.fill();
 
-            // Borde superior iluminado (efecto troquelado 3D)
-            ctx.beginPath();
-            ctx.arc(x, y, radius, -Math.PI * 0.25, Math.PI * 0.75);
-            ctx.strokeStyle = '#5a6673';
-            ctx.lineWidth = 1.1;
-            ctx.stroke();
+            ctx.beginPath(); ctx.arc(x, y, radius, -Math.PI * 0.25, Math.PI * 0.75);
+            ctx.strokeStyle = '#5a6673'; ctx.lineWidth = 1.1; ctx.stroke();
 
-            // Núcleo cian sutil de aire frío
-            ctx.beginPath();
-            ctx.arc(x, y, radius * 0.45, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(0, 210, 255, 0.45)';
-            ctx.fill();
+            ctx.beginPath(); ctx.arc(x, y, radius * 0.45, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(0, 210, 255, 0.45)'; ctx.fill();
         }
     }
 
-    const texture = new THREE.CanvasTexture(canvas);
-    return texture;
+    return new THREE.CanvasTexture(canvas);
 }
 
 function createPerforatedTilesLayout() {
     perforatedTilesGroup = new THREE.Group();
-    airflowGroup = new THREE.Group();
 
     const tileTexture = createPerforatedTileTexture();
     const tileMaterial = new THREE.MeshStandardMaterial({
-        map: tileTexture,
-        roughness: 0.35,
-        metalness: 0.7
+        map: tileTexture, roughness: 0.35, metalness: 0.7
     });
 
     const tileGeo = new THREE.PlaneGeometry(0.58, 0.58);
     tileGeo.rotateX(-Math.PI / 2);
 
-    // ----------------------------------------------------
-    // GEOMETRÍA Y TEXTURA DE FLUJO DE AIRE MEJORADA
-    // ----------------------------------------------------
-    const airHeight = 2.1; // Altura aumentada a 2.1 metros (casi la altura del rack)
-    const airGeo = new THREE.BoxGeometry(0.56, airHeight, 0.56);
-    
-    const airCanvas = document.createElement('canvas');
-    airCanvas.width = 128;
-    airCanvas.height = 256;
-    const actx = airCanvas.getContext('2d');
-    // Fondo transparente
-    actx.clearRect(0, 0, 128, 256);
-    // Corrientes / líneas de flujo de aire frío ascendente
-    actx.fillStyle = 'rgba(0, 230, 255, 0.4)';
-    for (let x = 10; x < 128; x += 14) {
-    actx.fillRect(x, 0, 7, 256);
-    }
-    // Degradado vertical: fuerte en la base (suelo) y difuminado arriba
-    const grad = actx.createLinearGradient(0, 256, 0, 0);
-    grad.addColorStop(0, 'rgba(0, 240, 255, 0.95)');   // Muy brillante y visible en la base
-    grad.addColorStop(0.3, 'rgba(0, 210, 255, 0.65)');  // Visible a media altura
-    grad.addColorStop(0.7, 'rgba(0, 180, 255, 0.35)');
-    grad.addColorStop(1, 'rgba(0, 150, 255, 0.0)');    // Desvanecido suave al llegar al techo
-    actx.globalCompositeOperation = 'destination-in';
-    actx.fillStyle = grad;
-    actx.fillRect(0, 0, 128, 256);
-    window.airflowTexture = new THREE.CanvasTexture(airCanvas);
-    window.airflowTexture.wrapT = THREE.RepeatWrapping; // Permite desplazamiento continuo hacia arriba
-    window.airflowMaterial = new THREE.MeshBasicMaterial({
-        map: window.airflowTexture,
-        transparent: true,
-        opacity: 1,                     // Opacidad base alta
-        side: THREE.DoubleSide,
-        depthWrite: false,
-        blending: THREE.AdditiveBlending   // Modo aditivo: brilla como luz/neón
-    });
-
-
+    const tilePositions = [];
     const added = new Set();
+
     racksSala1_2.forEach(data => {
         const col = data.id.substring(0, 2);
         const row = parseInt(data.id.substring(2));
@@ -525,38 +398,68 @@ function createPerforatedTilesLayout() {
         let tColIdx = cIdx;
         let tRow = row;
 
-        if (data.facing === "+Z") { tRow = row - 1; 
-        } else if (data.facing === "-Z") { tRow = row + 1; 
-        } else if (data.facing === "+X") { tColIdx = cIdx - 1; 
-        } else if (data.facing === "-X") { tColIdx = cIdx + 1; 
-        }
+        if (data.facing === "+Z") { tRow = row - 1; }
+        else if (data.facing === "-Z") { tRow = row + 1; }
+        else if (data.facing === "+X") { tColIdx = cIdx - 1; }
+        else if (data.facing === "-X") { tColIdx = cIdx + 1; }
 
         if (tColIdx >= 0 && tColIdx < TOTAL_COLS && tRow >= 1 && tRow <= TOTAL_ROWS) {
             const key = `${tColIdx}_${tRow}`;
             if (!added.has(key)) {
                 added.add(key);
                 const tilePos = getTilePos(COLS[tColIdx], tRow);
+                tilePositions.push(tilePos);
 
                 const tileMesh = new THREE.Mesh(tileGeo, tileMaterial);
                 tileMesh.position.set(tilePos.x, 0.012, tilePos.z);
                 perforatedTilesGroup.add(tileMesh);
-
-                const airMesh1 = new THREE.Mesh(airGeo, window.airflowMaterial);
-                airMesh1.position.set(tilePos.x, airHeight / 2 + 0.015, tilePos.z);
-                const airMesh2 = airMesh1.clone();
-                airMesh2.rotation.y = Math.PI / 2;
-                
-                airflowGroup.add(airMesh1, airMesh2);
             }
         }
     });
 
     scene.add(perforatedTilesGroup);
-    scene.add(airflowGroup);
+
+    // SISTEMA DE PARTÍCULAS
+    const particlesPerTile = 3000;
+    const totalParticles = tilePositions.length * particlesPerTile;
+
+    const particlePositions = new Float32Array(totalParticles * 3);
+    const particleSpeeds = new Float32Array(totalParticles);
+    let pIndex = 0;
+    const maxAirHeight = 2.0;
+
+    tilePositions.forEach(pos => {
+        for (let i = 0; i < particlesPerTile; i++) {
+            const offsetX = (Math.random() - 0.5) * 0.48;
+            const offsetZ = (Math.random() - 0.5) * 0.48;
+            const startY = Math.random() * maxAirHeight;
+
+            particlePositions[pIndex * 3] = pos.x + offsetX;
+            particlePositions[pIndex * 3 + 1] = startY;
+            particlePositions[pIndex * 3 + 2] = pos.z + offsetZ;
+
+            particleSpeeds[pIndex] = 0.01 + Math.random() * 0.02;
+            pIndex++;
+        }
+    });
+
+    const particleGeometry = new THREE.BufferGeometry();
+    particleGeometry.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+
+    const particleMaterial = new THREE.PointsMaterial({
+        color: 0x00d2ff, size: 0.04, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending
+    });
+
+    airflowParticles = new THREE.Points(particleGeometry, particleMaterial);
+    airflowParticles.name = "airflowParticles";
+    scene.add(airflowParticles);
+
+    window.airflowParticlesData = {
+        geometry: particleGeometry,
+        speeds: particleSpeeds,
+        maxHeight: maxAirHeight
+    };
 }
-// ==========================================
-// CONSTRUCCIÓN DE RACK ABIERTO SIEMON RS-07 + ORGANIZADORES
-// ==========================================
 
 function buildSiemonOpenRackMesh(data) {
     const rackGroup = new THREE.Group();
@@ -621,7 +524,6 @@ function buildSiemonOpenRackMesh(data) {
     const horizYPos = 0.05 + (20 * uHeight) + (horizHeight / 2);
 
     const horizGroup = new THREE.Group();
-
     const horizBackGeo = new THREE.BoxGeometry(usableWidth, horizHeight, 0.003);
     const horizBack = new THREE.Mesh(horizBackGeo, metalMaterial);
     horizGroup.add(horizBack);
@@ -724,7 +626,6 @@ function buildSiemonOpenRackMesh(data) {
 
         doorPivot.add(doorMesh);
         doorPivot.rotation.y = doorOpenAngle;
-
         vpcGroup.add(doorPivot);
 
         return vpcGroup;
@@ -757,12 +658,11 @@ function buildSiemonOpenRackMesh(data) {
     openRackInner.rotation.y = isRotatedRow ? -Math.PI / 2 : Math.PI / 2;
 
     rackGroup.add(openRackInner);
-    // CÓDIGO CORREGIDO PARA buildSiemonOpenRackMesh
+    
     const pos = getPosFromId(data.id);
     let rackX = pos.x;
     let rackZ = pos.z;
 
-    // Opcional: Ajustes de desplazamiento según la orientación si lo requiere la grilla
     if (data.facing === "+X") {
         rackX = (pos.colIndex + 1) * TILE_SIZE - channelDepth / 2;
     } else if (data.facing === "-X") {
@@ -773,10 +673,8 @@ function buildSiemonOpenRackMesh(data) {
         rackZ = (TOTAL_ROWS - pos.rowNum + 1) * TILE_SIZE - channelDepth / 2;
     }
 
-    rackGroup.position.set(rackX, 0 / 2, rackZ);
-    // 2. Aplicar la rotación de 90 grados en el eje Y
+    rackGroup.position.set(rackX, 0, rackZ);
     rackGroup.rotation.y = -Math.PI / 2;
-    return rackGroup;
 
     rackGroup.userData = { 
         id: data.id, 
@@ -788,12 +686,8 @@ function buildSiemonOpenRackMesh(data) {
         displayMesh: displayMesh
     };
 
-
     return rackGroup;
 }
-// ==========================================
-// CONSTRUCCIÓN DE RACKS APC AR3100
-// ==========================================
 
 function buildAPCRackMesh(data) {
     const rackGroup = new THREE.Group();
@@ -860,8 +754,6 @@ function buildAPCRackMesh(data) {
 function createRacksLayout() {
     racksSala1_2.forEach(data => {
         let rackMesh;
-        
-        // Si el ID es "AW14", creamos el rack abierto; para el resto, el rack APC
         if (data.id === "AW14") {
             rackMesh = buildSiemonOpenRackMesh(data);
         } else {
@@ -875,8 +767,7 @@ function createRacksLayout() {
 
 function createStatusDisplayTexture(tempVal, powerVal, hexColor) {
     const canvas = document.createElement('canvas');
-    canvas.width = 256;
-    canvas.height = 64;
+    canvas.width = 256; canvas.height = 64;
     const ctx = canvas.getContext('2d');
     ctx.fillStyle = '#050505';
     ctx.fillRect(0, 0, 256, 64);
@@ -893,10 +784,6 @@ function createStatusDisplayTexture(tempVal, powerVal, hexColor) {
     texture.needsUpdate = true;
     return texture;
 }
-
-// ==========================================
-// ZABBIX E INTERACCIONES
-// ==========================================
 
 async function fetchZabbixData() {
     try {
@@ -1019,7 +906,6 @@ function onMouseMove(event) {
         tooltip.style.left = (event.clientX + 15) + 'px';
         tooltip.style.top = (event.clientY + 15) + 'px';
 
-        // Validar si es un Rack o una CRAC según las propiedades de su userData
         if (d.id) {
             tooltip.innerHTML = `
                 <strong>Cliente: ${d.group}<br>
@@ -1038,9 +924,6 @@ function onMouseMove(event) {
     }
 }
 
-// ==========================================
-// FUNCIÓN DE ZOOM AL HACER DOBLE CLIC (GSAP)
-// ==========================================
 function onWindowDoubleClick(event) {
     mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
     mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
@@ -1049,29 +932,19 @@ function onWindowDoubleClick(event) {
     const intersects = raycaster.intersectObjects(scene.children, true);
 
     if (intersects.length > 0) {
-        const targetPoint = intersects[0].point; // Punto exacto 3D de impacto
-
-        // Calcular nueva posición para la cámara manteniendo la dirección pero acercándose
-        const distanceFactor = 2.5; // Distancia de acercamiento al objeto
+        const targetPoint = intersects[0].point;
+        const distanceFactor = 2.5;
         const dirVector = new THREE.Vector3().subVectors(camera.position, targetPoint).normalize();
         const newCameraPosition = new THREE.Vector3().copy(targetPoint).add(dirVector.multiplyScalar(distanceFactor));
 
-        // Animar el centro de los controles hacia el punto seleccionado
         gsap.to(controls.target, {
-            x: targetPoint.x,
-            y: targetPoint.y,
-            z: targetPoint.z,
-            duration: 1.2,
-            ease: "power2.out"
+            x: targetPoint.x, y: targetPoint.y, z: targetPoint.z,
+            duration: 1.2, ease: "power2.out"
         });
 
-        // Animar la posición de la cámara de forma fluida
         gsap.to(camera.position, {
-            x: newCameraPosition.x,
-            y: newCameraPosition.y,
-            z: newCameraPosition.z,
-            duration: 1.2,
-            ease: "power2.out",
+            x: newCameraPosition.x, y: newCameraPosition.y, z: newCameraPosition.z,
+            duration: 1.2, ease: "power2.out",
             onUpdate: () => controls.update()
         });
     }
@@ -1085,7 +958,24 @@ function onWindowResize() {
 
 function animate() {
     requestAnimationFrame(animate);
-    if (window.airflowTexture) window.airflowTexture.offset.y -= 0.018;
+
+    // Bucle de partículas de flujo de aire
+    if (airflowParticles && airflowParticles.visible && window.airflowParticlesData) {
+        const data = window.airflowParticlesData;
+        const positions = data.geometry.attributes.position.array;
+        const speeds = data.speeds;
+        const total = speeds.length;
+
+        for (let i = 0; i < total; i++) {
+            positions[i * 3 + 1] += speeds[i];
+
+            if (positions[i * 3 + 1] > data.maxHeight) {
+                positions[i * 3 + 1] = 0.02;
+            }
+        }
+        data.geometry.attributes.position.needsUpdate = true;
+    }
+
     controls.update();
     renderer.render(scene, camera);
 }
